@@ -1,4 +1,5 @@
 import { User } from "../models/usermodel.js";
+import { Session } from "../models/sessionmodel.js";
 import bcrypt from "bcrypt";
 import { verifyMail } from "../verifyEmail/verifyEmail.js";
 import jwt from "jsonwebtoken";
@@ -121,6 +122,100 @@ export const verification = async (req, res) => {
 
     
       
+    });
+  }
+};
+
+
+export const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1. Validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    // 2. Find user and include password
+    const user = await User.findOne({
+      email: email.trim().toLowerCase(),
+    }).select("+password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // 3. Compare passwords
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // 4. Check email verification
+    if (!user.isVerified) {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify your email before login",
+      });
+    }
+
+    // 5. Generate access token
+    const accessToken = jwt.sign(
+      { id: user._id,},
+      process.env.SECRET_KEY,
+      { expiresIn: "15m" }
+    );
+
+    // 6. Generate refresh token
+    const refreshToken = jwt.sign(
+      { id: user._id, type: "refresh" },
+      process.env.SECRET_KEY,
+      { expiresIn: "30d" }
+    );
+
+    // 7. Replace the existing session
+    await Session.findOneAndUpdate(
+      { userId: user._id },
+      { userId: user._id },
+      { upsert: true, new: true, runValidators: true }
+    );
+
+    // 8. Update login status
+    user.isLoggedIn = true;
+    await user.save();
+
+    // 9. Send response
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        isVerified: user.isVerified,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 };
