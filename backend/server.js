@@ -1,7 +1,7 @@
 import express from 'express';
 import connectDB from './database/db.js';
 import 'dotenv/config';
-import userRoute from './routes/userroute.js';
+import userRoute from './routes/userRoute.js';
 
 const app = express();
 
@@ -11,7 +11,7 @@ app.use(express.json());
 
 connectDB();
 
-app.get('/', (req, res) => {
+app.get('/', (req , res) => {
     res.send("backend is working");
 });
 
