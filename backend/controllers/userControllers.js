@@ -32,11 +32,15 @@ export const registerUser = async (req, res) => {
       isVerified: false,
     });
 
-    const token = jwt.sign({
-       id: newUser._id }, 
-       process.env.SECRET_KEY, {
-      expiresIn: "15m",
-    });
+    const token = jwt.sign(
+      {
+        id: newUser._id,
+      },
+      process.env.SECRET_KEY,
+      {
+        expiresIn: "15m",
+      },
+    );
 
     await verifyMail(token, email);
 
@@ -60,7 +64,6 @@ export const registerUser = async (req, res) => {
   }
 };
 
-
 export const verification = async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -68,7 +71,7 @@ export const verification = async (req, res) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Authorization token is missing or invalid"
+        message: "Authorization token is missing or invalid",
       });
     }
 
@@ -82,13 +85,13 @@ export const verification = async (req, res) => {
       if (error.name === "TokenExpiredError") {
         return res.status(401).json({
           success: false,
-          message: "Token has expired"
+          message: "Token has expired",
         });
       }
 
       return res.status(401).json({
         success: false,
-        message: "Token verification failed"
+        message: "Token verification failed",
       });
     }
 
@@ -97,7 +100,7 @@ export const verification = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found"
+        message: "User not found",
       });
     }
 
@@ -108,24 +111,17 @@ export const verification = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "User verified successfully"
+      message: "User verified successfully",
     });
-
   } catch (error) {
     console.error(error);
 
     return res.status(500).json({
-
-      
       success: false,
       message: "Internal Server Error",
-
-    
-      
     });
   }
 };
-
 
 export const loginUser = async (req, res) => {
   try {
@@ -152,10 +148,7 @@ export const loginUser = async (req, res) => {
     }
 
     // 3. Compare passwords
-    const isPasswordValid = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -173,24 +166,22 @@ export const loginUser = async (req, res) => {
     }
 
     // 5. Generate access token
-    const accessToken = jwt.sign(
-      { id: user._id,},
-      process.env.SECRET_KEY,
-      { expiresIn: "15m" }
-    );
+    const accessToken = jwt.sign({ id: user._id }, process.env.SECRET_KEY, {
+      expiresIn: "15m",
+    });
 
     // 6. Generate refresh token
     const refreshToken = jwt.sign(
       { id: user._id, type: "refresh" },
       process.env.SECRET_KEY,
-      { expiresIn: "30d" }
+      { expiresIn: "30d" },
     );
 
     // 7. Replace the existing session
     await Session.findOneAndUpdate(
       { userId: user._id },
       { userId: user._id },
-      { upsert: true, new: true, runValidators: true }
+      { upsert: true, new: true, runValidators: true },
     );
 
     // 8. Update login status
@@ -220,19 +211,46 @@ export const loginUser = async (req, res) => {
   }
 };
 
-export const logoutUser = async (req,res) =>{
-
+export const logoutUser = async (req, res) => {
   try {
     const userId = req.userId;
-    
+
     return res.status(200).json({
       success: true,
-      message: "User logged out successfully"
+      message: "User logged out successfully",
     });
   } catch (error) {
     return res.status(500).json({
-      success:false,
-      message:error.message
-    })
+      success: false,
+      message: error.message,
+    });
   }
-}
+};
+
+export const forgetPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000); // OTP valid for 10 minutes
+    user.otp = otp;
+    user.otpExpiry = expiry;
+    await user.save();
+    await (otp, email);
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent to email",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
