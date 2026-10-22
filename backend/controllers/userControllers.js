@@ -3,6 +3,8 @@ import { Session } from "../models/sessionmodel.js";
 import bcrypt from "bcrypt";
 import { verifyMail } from "../verifyEmail/verifyEmail.js";
 import jwt from "jsonwebtoken";
+import { sentToMail } from "../verifyEmail/sendOtpMail.js";
+
 
 export const registerUser = async (req, res) => {
   try {
@@ -238,11 +240,15 @@ export const forgetPassword = async (req, res) => {
       });
     }
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date(Date.now() + 10 * 60 * 1000); // OTP valid for 10 minutes
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    // OTP valid for 10 minutes
+
+    console.log(`Generated OTP for ${email}: ${otp} (expires at ${expiry})`); // Log the OTP and expiry for debugging
     user.otp = otp;
     user.otpExpiry = expiry;
     await user.save();
-    await (otp, email);
+    await sentToMail(email, otp);
+    console.log("Email transporter created successfully");
     return res.status(200).json({
       success: true,
       message: "OTP sent to email",
