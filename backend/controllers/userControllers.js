@@ -260,3 +260,63 @@ export const forgetPassword = async (req, res) => {
     });
   }
 };
+
+export const otpverify = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const email = req.params.email?.trim().toLowerCase();
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required",
+      });
+    }
+
+    // Must use .select("+otp +otpExpiry") because they have select: false in schema
+    const user = await User.findOne({ email }).select("+otp +otpExpiry");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (!user.otp || !user.otpExpiry) {
+      return res.status(400).json({
+        success: false,
+        message: "No OTP was requested or OTP has already been used",
+      });
+    }
+
+    if (new Date() > new Date(user.otpExpiry)) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired",
+      });
+    }
+
+    if (user.otp !== String(otp).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    user.otp = null;
+    user.otpExpiry = null;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
